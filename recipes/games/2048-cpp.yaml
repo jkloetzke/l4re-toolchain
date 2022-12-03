@@ -1,0 +1,11 @@
+inherit: [cmake]
+
+checkoutSCM:
+    scm: git
+    url: https://github.com/plibither8/2048.cpp.git
+
+buildScript: |
+    cmakeBuild "$1"
+
+packageScript: |
+    cmakePackageTgt

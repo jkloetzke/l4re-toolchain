@@ -1,0 +1,43 @@
+multiPackage:
+    arm64:
+        depends:
+          - name: devel::l4re::cross-toolchain
+            environment:
+              AUTOCONF_TARGET: "aarch64-l4re"
+              ARCH: "arm64"
+              GCC_LIBC: "l4re::libc"
+            use: [tools, environment]
+            forward: True
+
+          - games::2048-cpp
+          - python::python3-l4re
+
+    amd64:
+        depends:
+          - name: devel::l4re::cross-toolchain
+            environment:
+              AUTOCONF_TARGET: "x86_64-l4re"
+              ARCH: "x86_64"
+              GCC_LIBC: "l4re::libc"
+            use: [tools, environment]
+            forward: True
+
+          - games::2048-cpp
+          - python::python3-l4re
+
+buildTools: [target-toolchain]
+buildVars: [TOOLCHAIN_SYSROOT]
+buildScript: |
+  rm -rf *
+  mkdir -p usr/{bin,lib}
+
+  # Copy everything except toolchain itself
+  for i in "${@:2}" ; do
+    cp -an "$i"/* .
+  done
+
+  # Copy sysroot libraries
+  cp -a "${BOB_TOOL_PATHS[target-toolchain]}/$TOOLCHAIN_SYSROOT"/usr/lib/*.so* usr/lib/
+
+packageScript: |
+  cp -a "$1"/* .

@@ -1,0 +1,5 @@
+bobMinimumVersion: "0.24"
+policies:
+  defaultFileMode: False
+layers:
+    - basement

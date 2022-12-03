@@ -1,0 +1,68 @@
+# TODO: re-enable once the dust has settled
+#shared: True
+
+depends:
+    # If AUTOCONF_BUILD == AUTOCONF_HOST then this is regular cross toolchain
+    # that is executable on the build machine. Note that it will be built with
+    # the host-native-toolchain!
+    - name: devel::l4re::gcc-cross-host
+      if: !expr |
+        "$AUTOCONF_BUILD" == get-tool-env("target-toolchain", "AUTOCONF_HOST", "$AUTOCONF_HOST")
+
+    # If AUTOCONF_BUILD != AUTOCONF_HOST, we build a canadian cross.
+    - name: devel::l4re::gcc-cross-canadian
+      if: !expr |
+        "$AUTOCONF_BUILD" != get-tool-env("target-toolchain", "AUTOCONF_HOST", "$AUTOCONF_HOST")
+
+buildVars: [AUTOCONF_TARGET, GCC_LIBC]
+buildScript: |
+    rm -rf *
+    cp -an $2/* .
+    cp -an ${BOB_DEP_PATHS[devel::l4re::binutils]}/* .
+    mkdir -p usr/sysroots/$AUTOCONF_TARGET/usr/lib
+    if [[ ${GCC_LIBC:+true} ]] ; then
+       cp -an ${BOB_DEP_PATHS[libs::${GCC_LIBC}]}/* usr/sysroots/$AUTOCONF_TARGET
+       rsync -aHSK usr/$AUTOCONF_TARGET/lib/ \
+         usr/sysroots/$AUTOCONF_TARGET/usr/lib/ \
+         --include '*.so.*' \
+         --exclude '*'
+    fi
+
+packageScript: |
+    cp -a $1/* .
+    # Remove debug symbols of host executables. We don't care if the toolchain
+    # crashes. The target architecture symbols need to be retained, though...
+    find usr/bin usr/libexec -type d -name .debug | xargs /bin/rm -rf
+
+provideTools:
+    target-toolchain:
+        path: "usr/bin"
+        environment:
+            # usual compiler variables
+            AR: "${AUTOCONF_TARGET}-ar"
+            AS: "${AUTOCONF_TARGET}-as"
+            CC: "${AUTOCONF_TARGET}-gcc"
+            CPP: "${AUTOCONF_TARGET}-cpp"
+            CXX: "${AUTOCONF_TARGET}-g++"
+            GDB: "${AUTOCONF_TARGET}-gdb"
+            LD: "${AUTOCONF_TARGET}-ld"
+            NM: "${AUTOCONF_TARGET}-nm"
+            OBJCOPY: "${AUTOCONF_TARGET}-objcopy"
+            OBJDUMP: "${AUTOCONF_TARGET}-objdump"
+            RANLIB: "${AUTOCONF_TARGET}-ranlib"
+            STRIP: "${AUTOCONF_TARGET}-strip"
+
+            # Host system definition. Note that we do not touch the build
+            # system definiton (AUTOCONF_BUILD) because this is a cross
+            # compiling toolchain.
+            ARCH: "${ARCH}"
+            AUTOCONF_HOST: "${AUTOCONF_TARGET}"
+            CROSS_COMPILE: "${AUTOCONF_TARGET}-"
+            TOOLCHAIN_SYSROOT: "../sysroots/${AUTOCONF_TARGET}"
+
+provideVars:
+    # Set default compiler flags
+    CPPFLAGS:   "-Wdate-time"
+    CFLAGS:     "-O${BASEMENT_OPTIMIZE}$(if-then-else,${BASEMENT_DEBUG}, -g,) -pipe"
+    CXXFLAGS:   "-O${BASEMENT_OPTIMIZE}$(if-then-else,${BASEMENT_DEBUG}, -g,) -pipe"
+    LDFLAGS:    "-Wl,-O1 -Wl,--hash-style=gnu"

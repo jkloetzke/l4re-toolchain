@@ -1,0 +1,236 @@
+inherit: [make, install]
+
+metaEnvironment:
+    PKG_VERSION: "12.3-git+l4re"
+
+depends:
+    - libs::gmp-dev
+    - libs::mpfr-dev
+    - libs::mpc-dev
+    - libs::isl-dev
+
+    - use: []
+      depends:
+        - libs::gmp-tgt
+        - libs::mpfr-tgt
+        - libs::mpc-tgt
+        - libs::isl-tgt
+
+checkoutSCM:
+    scm: git
+    url: https://github.com/jkloetzke/gcc.git
+    branch: releases/gcc-12-l4re
+
+checkoutDeterministic: True
+checkoutTools: [autotools]
+checkoutScript: |
+    # Intentionally left blank. Just there to call autoconf when there is a
+    # need to regenerate...
+
+buildTools: [flex]
+buildVars: [AUTOCONF_BUILD, AUTOCONF_HOST, AUTOCONF_TARGET,
+            GCC_TARGET_ARCH, GCC_TARGET_FLOAT_ABI, GCC_TARGET_FPU,
+            GCC_MULTILIB]
+buildScript: |
+    GCC_SRC=$1
+    mkdir -p build install
+
+    configureGcc()
+    {
+        pushd build
+        if [[ $GCC_SRC/configure -nt .configure.stamp ]] ; then
+            $GCC_SRC/configure \
+                --build=${AUTOCONF_BUILD} \
+                --host=${AUTOCONF_HOST} \
+                --target=${AUTOCONF_TARGET:-${AUTOCONF_HOST}} \
+                --prefix=/usr \
+                ${GCC_TARGET_ARCH:+--with-arch=$GCC_TARGET_ARCH} \
+                ${GCC_TARGET_FPU:+--with-fpu=$GCC_TARGET_FPU} \
+                ${GCC_TARGET_FLOAT_ABI:+--with-float=$GCC_TARGET_FLOAT_ABI} \
+                --enable-initfini-array \
+                "${@}" \
+                --disable-gtk-doc \
+                --disable-gtk-doc-html \
+                --disable-doc \
+                --disable-docs \
+                --disable-documentation \
+                --disable-debug \
+                --disable-nls \
+                --with-xmlto=no \
+                --with-fop=no \
+                --with-gmp-include=${BOB_DEP_PATHS[libs::gmp-dev]}/usr/include \
+                --with-gmp-lib=${BOB_DEP_PATHS[libs::gmp-dev]}/usr/lib \
+                --with-mpfr-include=${BOB_DEP_PATHS[libs::mpfr-dev]}/usr/include \
+                --with-mpfr-lib=${BOB_DEP_PATHS[libs::mpfr-dev]}/usr/lib \
+                --with-mpc-include=${BOB_DEP_PATHS[libs::mpc-dev]}/usr/include \
+                --with-mpc-lib=${BOB_DEP_PATHS[libs::mpc-dev]}/usr/lib \
+                --with-isl-include=${BOB_DEP_PATHS[libs::isl-dev]}/usr/include \
+                --with-isl-lib=${BOB_DEP_PATHS[libs::isl-dev]}/usr/lib
+            touch .configure.stamp
+        fi
+        popd
+    }
+
+    buildGcc()
+    {
+        configureGcc "$@"
+        makeParallel -C build
+        makeSequential -C build install DESTDIR="$PWD/install"
+    }
+
+packageScript: |
+    # copy everything
+    installPackageDev "$1/install/" "*"
+
+multiPackage:
+    # The internal gcc-cross-bare toolchain. This is a minimal, bare-metal
+    # cross compiler that is built with the native host compiler. It is just
+    # used to compile libc. This is not intended to be used by other recipes.
+    cross-bare:
+        depends:
+            -
+                name: devel::l4re::binutils
+                use: [result, tools]
+        buildTools: [host-native-toolchain, binutils]
+        buildScript: |
+            buildGcc \
+                --with-glibc-version=2.11                      \
+                --with-sysroot=/does/not/exist                 \
+                --with-newlib                                  \
+                --without-headers                              \
+                --disable-decimal-float                        \
+                --disable-threads                              \
+                --disable-libatomic                            \
+                --disable-libgomp                              \
+                --disable-libmpx                               \
+                --disable-libquadmath                          \
+                --disable-libssp                               \
+                --disable-libvtv                               \
+                --disable-libstdcxx                            \
+                --disable-multilib                             \
+                --disable-shared                               \
+                --disable-bootstrap                            \
+                --enable-languages=c,c++
+            cp -a ${BOB_DEP_PATHS[devel::l4re::binutils]}/* install/
+
+        packageScript: |
+            installStripAll usr/bin
+
+        provideTools:
+            # To be used when compiling the target libc. Replaces the
+            # target-toolchain.
+            cross-target-toolchain:
+                path: usr/bin
+                environment:
+                    # usual compiler variables
+                    AR: "${AUTOCONF_TARGET}-ar"
+                    AS: "${AUTOCONF_TARGET}-as"
+                    CC: "${AUTOCONF_TARGET}-gcc"
+                    CPP: "${AUTOCONF_TARGET}-cpp"
+                    CXX: "${AUTOCONF_TARGET}-g++"
+                    GDB: "${AUTOCONF_TARGET}-gdb"
+                    LD: "${AUTOCONF_TARGET}-ld"
+                    NM: "${AUTOCONF_TARGET}-nm"
+                    OBJCOPY: "${AUTOCONF_TARGET}-objcopy"
+                    OBJDUMP: "${AUTOCONF_TARGET}-objdump"
+                    RANLIB: "${AUTOCONF_TARGET}-ranlib"
+                    STRIP: "${AUTOCONF_TARGET}-strip"
+
+                    # Host system definition. Note that we do not touch the build
+                    # system definiton (AUTOCONF_BUILD) because this is a cross
+                    # compiling toolchain.
+                    ARCH: "${ARCH}"
+                    AUTOCONF_HOST: "${AUTOCONF_TARGET}"
+                    CROSS_COMPILE: "${AUTOCONF_TARGET}-"
+
+                    # Reset compiler flags
+                    CPPFLAGS:   "-Wdate-time"
+                    CFLAGS:     "-Os -pipe"
+                    CXXFLAGS:   "-Os -pipe"
+                    LDFLAGS:    "-Wl,-O1 -Wl,--hash-style=gnu"
+
+    cross:
+        depends:
+            - name: devel::l4re::binutils
+              use: [result, tools]
+            - name: devel::l4re::gcc-cross-bare
+              use: [tools]
+              forward: True
+            - name: libs::glibc
+              if: "$(eq,${GCC_LIBC},glibc)"
+              tools:
+                target-toolchain: cross-target-toolchain
+            - name: libs::newlib
+              if: "$(eq,${GCC_LIBC},newlib)"
+              tools:
+                target-toolchain: cross-target-toolchain
+            - name: libs::l4re::libc
+              if: "$(eq,${GCC_LIBC},l4re::libc)"
+              tools:
+                target-toolchain: cross-target-toolchain
+
+        buildTools: [binutils]
+        buildVars: [GCC_LIBC, GCC_ENABLE_LANGUAGES]
+        buildScript: |
+            if [[ -z "${GCC_MULTILIB:-}" ]] ; then
+                OPTIONS=( --disable-multilib )
+            else
+                OPTIONS=( "--with-multilib-list=$GCC_MULTILIB" )
+            fi
+
+            if [[ "$GCC_LIBC" = newlib ]] ; then
+                OPTIONS+=( --with-newlib )
+            fi
+
+            configureGcc \
+                --with-sysroot=/usr/sysroots/${AUTOCONF_TARGET} \
+                --with-build-sysroot=${BOB_DEP_PATHS[libs::${GCC_LIBC}]}     \
+                --enable-linker-build-id                                     \
+                "${OPTIONS[@]}"                                              \
+                --enable-languages="${GCC_ENABLE_LANGUAGES:-c,c++}"
+
+        packageScript: |
+            installStripAll usr/bin
+            installStripAll usr/libexec
+
+        provideDeps:
+            - devel::l4re::binutils
+            - libs::glibc
+            - libs::newlib
+            - libs::l4re::libc
+
+        multiPackage:
+            # Straigtforward cross compiler. This is a regular cross compiler
+            # built by the native host compiler. As such, it is usually not
+            # intended to be used directly but to bootstrap the canadian cross
+            # compiler below.
+            host:
+                buildTools: [host-native-toolchain]
+                buildScript: |
+                    makeParallel -C build
+                    makeSequential -C build install DESTDIR="$PWD/install"
+                provideTools:
+                    # Required by the canadian cross compiler to dump specs.
+                    cross-ambient-toolchain:
+                        path: usr/bin
+
+            # A canadian cross compiler. This uses most of the result of the
+            # native cross compiler above. Only the compiler itself is built as
+            # canadian cross, replacing the binaries from the first-stage cross
+            # compiler.
+            canadian:
+                depends:
+                    - name: devel::l4re::gcc-cross-host
+                      # This is very subtle. The devel::gcc-cross-host package
+                      # is tainted and fingerprinted by the host libc version.
+                      # We do now want to inherit this fingerprint but instead
+                      # explicitly cut it because we replace all fingerprinted
+                      # bineries with the canadian cross build. Hence do *not*
+                      # use "result" but instead reference the first-stage
+                      # through "tools" only.
+                      use: [tools]
+                buildTools: [host-toolchain, target-toolchain, cross-ambient-toolchain]
+                buildScript: |
+                    cp -a "${BOB_TOOL_PATHS[cross-ambient-toolchain]}/../.."/* install/
+                    makeParallel -C build all-gcc
+                    makeSequential -C build install-gcc DESTDIR="$PWD/install"

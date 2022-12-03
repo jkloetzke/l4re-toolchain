@@ -1,0 +1,14 @@
+inherit: [ "basement::rootrecipe" ]
+depends:
+  # We need explicitly autoconf-2.69 for gcc-12! Also patched to already
+  # contain L4Re support.
+  - name: devel::l4re::autotools
+    use: [tools]
+    forward: True
+
+  - toolchain-arm64
+  - toolchain-amd64
+
+# Dummy build script. We don't want to aggregate our dependencies.
+buildScript: |
+  true

@@ -1,0 +1,77 @@
+inherit: [autotools, autoconf, make, patch]
+
+metaEnvironment:
+    PKG_VERSION: "3.8.0"
+
+privateEnvironment:
+    APPLY_LIBTOOL_PATCH: "no"
+
+depends:
+   - libs::l4re::libffi-dev
+   - libs::zlib-dev
+
+   - use: []
+     depends:
+      - libs::l4re::libffi-tgt
+      - libs::zlib-tgt
+
+checkoutSCM:
+    scm: url
+    url: https://www.python.org/ftp/python/${PKG_VERSION}/Python-${PKG_VERSION}.tar.xz
+    digestSHA256: "b356244e13fb5491da890b35b13b2118c3122977c2cd825e3eb6e7d462030d84"
+    extract: False
+
+# The applied patch cannot be reversed. Instead we always start from scratch.
+checkoutVars: [PKG_VERSION]
+checkoutDeterministic: True
+checkoutScript: |
+    shopt -s dotglob extglob
+    rm -rf !("Python-${PKG_VERSION}.tar.xz")
+    shopt -u dotglob extglob
+    tar -x --no-same-owner --no-same-permissions -f Python-${PKG_VERSION}.tar.xz --strip-components=1
+    patchApplySeries $<<python3-l4re/*>>
+    autoconfReconfigure
+    cat ${BOB_TOOL_PATHS[autotools]}/../share/automake-*/config.sub > config.sub
+
+# We cannot use out-of-tree builds directly from the source workspace because
+# the build somehow manages to create .pyc files in the sources. Setting
+# PYTHONDONTWRITEBYTECODE does not suffice.
+buildTools: [python3]
+buildScript: |
+    mkdir -p src
+    rsync -aH --delete $1/ src/
+
+    export ac_cv_file__dev_ptc=yes
+    export ac_cv_file__dev_ptmx=yes
+    export ac_cv_have_long_long_format=yes
+    export ac_cv_prog_HAS_HG=/bin/false
+    export ac_cv_working_tzset=yes
+
+    autotoolsBuild $PWD/src \
+        --disable-bzip2 \
+        --disable-codecs-cjk \
+        --disable-idle3 \
+        --disable-lib2to3 \
+        --disable-nis \
+        --disable-ossaudiodev \
+        --disable-pyc-build \
+        --disable-pydoc \
+        --disable-sqlite3 \
+        --disable-test-modules \
+        --disable-tk \
+        --disable-uuid \
+        --enable-curses \
+        --enable-readline \
+        --enable-unicodedata \
+        --enable-zlib \
+        --without-expat \
+        --with-libmpdec=none \
+        --with-system-ffi \
+        --without-cxx-main \
+        --without-ensurepip \
+        --disable-openssl \
+
+provideDeps: [ "*-tgt" ]
+packageScript: |
+    autotoolsPackageTgt
+    ln -sf python3 usr/bin/python

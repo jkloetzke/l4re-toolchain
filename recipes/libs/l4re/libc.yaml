@@ -1,0 +1,62 @@
+inherit: [make]
+
+depends:
+    - name: devel::l4re::gcc-cross-bare
+      use: [tools]
+
+checkoutSCM:
+    - scm: git
+      dir: .
+      url: https://github.com/jkloetzke/mk.git
+      branch: l4re-toolchain
+    - scm: git
+      dir: pkg/l4re-core
+      url: https://github.com/jkloetzke/l4re-core.git
+      branch: l4re-toolchain
+
+buildTools: [host-toolchain, target-toolchain, flex, bison]
+buildVars: [ARCH, CROSS_COMPILE]
+buildScript: |
+    # TODO: derive L4_* values by
+    #
+    #   source build/l4defs.sh.inc
+    #
+    # instead of hard coding them here. But the "l4defs" make target builds too
+    # much for the bare cross compiler. :(
+    case $ARCH in
+        arm64)
+            DEFCONFIG=config.arm64-virt-v8a
+            L4_ARCH=arm64
+            L4_SYSTEM=arm64_armv8a
+            L4_BID_KIP_ADDR=0xb0000000
+            ;;
+        x86_64)
+            DEFCONFIG=config.amd64
+            L4_ARCH=amd64
+            L4_SYSTEM=amd64_gen
+            L4_BID_KIP_ADDR=0x6ffff000
+            ;;
+        *)
+            echo "Unsupported: $ARCH" >&2
+            exit 1
+    esac
+
+    if [[ ! -e build/.bob-init-done ]] ; then
+        cp "$1/mk/defconfig/$DEFCONFIG" defconfig
+        echo "CONFIG_BID_USE_TOOLCHAIN_LIBGCC=n" >> defconfig
+        rm -rf build
+        make -C "$1" B="$PWD/build" \
+            DROPSCONF_DEFCONFIG="$PWD/defconfig"
+        make -C build olddefconfig
+        touch build/.bob-init-done
+    fi
+
+    cd build
+
+    makeParallel sysroot
+    ${CROSS_COMPILE}gcc -c -o sysroot/usr/lib/crtl4kip.o -x assembler-with-cpp \
+        -DL4_BID_KIP_ADDR=$L4_BID_KIP_ADDR \
+        $<<libc/crtl4kip.S>>
+
+packageScript: |
+    cp -a $1/build/sysroot/* .

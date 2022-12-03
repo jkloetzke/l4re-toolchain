@@ -1,0 +1,25 @@
+inherit: [autotools, autoconf, patch]
+
+metaEnvironment:
+   PKG_VERSION: "3.2.1"
+
+checkoutSCM:
+   scm: url
+   url: ${SOURCEWARE_MIRROR}/libffi/libffi-${PKG_VERSION}.tar.gz
+   digestSHA1: "280c265b789e041c02e5c97815793dfc283fb1e6"
+   stripComponents: 1
+
+checkoutDeterministic: True
+checkoutScript: |
+    patchApplySeries $<<libffi/*.diff>>
+    autoconfReconfigure
+
+buildScript: |
+   autotoolsBuild $1
+
+multiPackage:
+    dev:
+        packageScript: autotoolsPackageDev
+    tgt:
+        packageScript: autotoolsPackageTgt
+

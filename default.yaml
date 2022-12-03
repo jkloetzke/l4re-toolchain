@@ -1,0 +1,3 @@
+scmDefaults:
+  git:
+    shallow: 1

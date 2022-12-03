@@ -1,0 +1,78 @@
+diff -Nurp workspace/configure.ac b/configure.ac
+--- workspace/configure.ac	2024-03-07 20:52:44.937591357 +0100
++++ b/configure.ac	2024-03-07 20:58:10.391652084 +0100
+@@ -382,6 +382,9 @@ then
+ 	*-*-vxworks*)
+ 	    ac_sys_system=VxWorks
+ 	    ;;
++	*-*-l4re*)
++		ac_sys_system=L4Re
++		;;
+ 	*)
+ 		# for now, limit cross builds to known configurations
+ 		MACHDEP="unknown"
+@@ -431,6 +434,9 @@ if test "$cross_compiling" = yes; then
+ 	*-*-vxworks*)
+ 		_host_cpu=$host_cpu
+ 		;;
++	*-*-l4re*)
++		_host_cpu=$host_cpu
++		;;
+ 	*)
+ 		# for now, limit cross builds to known configurations
+ 		MACHDEP="unknown"
+@@ -2599,7 +2605,7 @@ then
+ 			BLDSHARED="$LDSHARED"
+ 		fi
+ 		;;
+-	Linux*|GNU*|QNX*|VxWorks*)
++	Linux*|GNU*|QNX*|VxWorks*|L4Re*)
+ 		LDSHARED='$(CC) -shared'
+ 		LDCXXSHARED='$(CXX) -shared';;
+ 	FreeBSD*)
+@@ -2665,6 +2671,7 @@ then
+ 		 then CCSHARED="-fPIC";
+ 		 else CCSHARED="+z";
+ 		 fi;;
++	L4Re*) CCSHARED="-fPIC";;
+ 	Linux-android*) ;;
+ 	Linux*|GNU*) CCSHARED="-fPIC";;
+ 	FreeBSD*|NetBSD*|OpenBSD*|DragonFly*) CCSHARED="-fPIC";;
+diff -Nurp workspace/setup.py b/setup.py
+--- workspace/setup.py	2024-03-07 20:52:44.929591011 +0100
++++ b/setup.py	2024-03-07 20:59:58.940330114 +0100
+@@ -48,6 +48,7 @@ CYGWIN = (HOST_PLATFORM == 'cygwin')
+ MACOS = (HOST_PLATFORM == 'darwin')
+ AIX = (HOST_PLATFORM.startswith('aix'))
+ VXWORKS = ('vxworks' in HOST_PLATFORM)
++L4RE = ('l4re' in HOST_PLATFORM)
+ 
+ 
+ SUMMARY = """
+@@ -806,7 +807,7 @@ class PyBuildExt(build_ext):
+         # pwd(3)
+         self.add(Extension('pwd', ['pwdmodule.c']))
+         # grp(3)
+-        if not VXWORKS:
++        if not VXWORKS and not L4RE:
+             self.add(Extension('grp', ['grpmodule.c']))
+         # spwd, shadow passwords
+         if (self.config_h_vars.get('HAVE_GETSPNAM', False) or
+@@ -1027,7 +1028,7 @@ class PyBuildExt(build_ext):
+ 
+     def detect_crypt(self):
+         # crypt module.
+-        if VXWORKS:
++        if VXWORKS or L4RE:
+             # bpo-31904: crypt() function is not provided by VxWorks.
+             # DES_crypt() OpenSSL provides is too weak to implement
+             # the encryption.
+@@ -1464,7 +1465,7 @@ class PyBuildExt(build_ext):
+     def detect_platform_specific_exts(self):
+         # Unix-only modules
+         if not MS_WINDOWS:
+-            if not VXWORKS:
++            if not VXWORKS and not L4RE:
+                 # Steen Lumholt's termios module
+                 self.add(Extension('termios', ['termios.c']))
+                 # Jeremy Hylton's rlimit interface

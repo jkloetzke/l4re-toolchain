@@ -1,0 +1,44 @@
+inherit: [autotools]
+
+metaEnvironment:
+    PKG_VERSION: "2.41+l4re"
+
+checkoutSCM:
+    scm: git
+    url: https://github.com/jkloetzke/binutils-gdb.git
+    branch: binutils-2_41-branch-l4re
+
+# Some parts are compiled for the host during compilation. Hence we need the
+# host toolchain too.
+buildTools: [host-toolchain, bison, flex]
+
+buildVars: [AUTOCONF_HOST, AUTOCONF_TARGET, BINUTILS_PREFIX]
+buildScript: |
+    export MAKEINFO=true
+    autotoolsBuild -o MAKEINFO=true -O MAKEINFO=true $1 \
+        ${BINUTILS_PREFIX:+--prefix=${BINUTILS_PREFIX}} \
+        --with-sysroot=${BINUTILS_PREFIX:-/usr}/sysroots/${AUTOCONF_TARGET:-$AUTOCONF_HOST} \
+        --enable-deterministic-archives \
+        --disable-nls \
+        --disable-werror \
+        --enable-plugins \
+        --enable-lto \
+        --without-x \
+        --disable-gdbserver \
+        --disable-gdb
+
+packageScript: |
+    autotoolsPackageTgt
+
+    # make sure that prefixed versions are available on native build
+    if [[ $AUTOCONF_HOST = ${AUTOCONF_TARGET:-$AUTOCONF_HOST} ]] ; then
+        pushd ./${BINUTILS_PREFIX:-/usr}/bin
+        for i in *; do
+            ln -s "$i" "${AUTOCONF_HOST}-$i"
+        done
+        popd
+    fi
+
+provideTools:
+    binutils: usr/bin
+
