@@ -1,6 +1,6 @@
 diff -Nurp a/configure.ac workspace/configure.ac
---- a/configure.ac	2024-03-10 14:36:20.753909191 +0100
-+++ workspace/configure.ac	2024-03-10 14:47:49.392355752 +0100
+--- a/configure.ac	2024-03-14 20:56:28.287293978 +0100
++++ workspace/configure.ac	2024-03-14 21:02:09.519546511 +0100
 @@ -536,6 +536,9 @@ then
         # a lot of different things including 'define_xopen_source'
         # in the case statement below.
@@ -47,6 +47,15 @@ diff -Nurp a/configure.ac workspace/configure.ac
  	Linux-android*) ;;
  	Linux*|GNU*) CCSHARED="-fPIC";;
  	Emscripten*|WASI*)
+@@ -3307,7 +3314,7 @@ then
+ 	    LINKFORSHARED="-Wl,-E -Wl,+s";;
+ #	    LINKFORSHARED="-Wl,-E -Wl,+s -Wl,+b\$(BINLIBDEST)/lib-dynload";;
+ 	Linux-android*) LINKFORSHARED="-pie -Xlinker -export-dynamic";;
+-	Linux*|GNU*) LINKFORSHARED="-Xlinker -export-dynamic";;
++	Linux*|GNU*|L4Re*) LINKFORSHARED="-Xlinker -export-dynamic";;
+ 	# -u libsys_s pulls in all symbols in libsys
+ 	Darwin/*)
+ 		LINKFORSHARED="$extra_undefs -framework CoreFoundation"
 @@ -6984,6 +6991,7 @@ dnl VxWorks does not provide crypt() fun
  AS_CASE([$ac_sys_system],
    [AIX], [PY_STDLIB_MOD_SET_NA([_scproxy], [spwd])],
