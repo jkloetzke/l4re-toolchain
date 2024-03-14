@@ -10,7 +10,7 @@ multiPackage:
             forward: True
 
           - games::2048-cpp
-          - python::python3-l4re
+          - python::python3-l4re-tgt
 
     amd64:
         depends:
@@ -23,7 +23,7 @@ multiPackage:
             forward: True
 
           - games::2048-cpp
-          - python::python3-l4re
+          - python::python3-l4re-tgt
 
 buildTools: [target-toolchain]
 buildVars: [TOOLCHAIN_SYSROOT]
