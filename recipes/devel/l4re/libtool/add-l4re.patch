@@ -1,21 +1,24 @@
-diff -Nurp a/m4/libtool.m4 b/m4/libtool.m4
---- a/m4/libtool.m4	2015-01-20 17:15:19.000000000 +0100
-+++ b/m4/libtool.m4	2024-03-08 10:31:00.187281221 +0100
-@@ -2507,6 +2507,13 @@ beos*)
+diff -Nurp a/m4/libtool.m4 workspace/m4/libtool.m4
+--- a/m4/libtool.m4	2024-03-10 17:09:20.797914329 +0100
++++ workspace/m4/libtool.m4	2024-03-10 17:15:58.758398735 +0100
+@@ -2507,6 +2507,16 @@ beos*)
    shlibpath_var=LIBRARY_PATH
    ;;
  
 +l4re*)
-+  library_names_spec='$libname$shared_ext'
++  version_type=none # L4Re doesn't use versioned libraries so far.
++  need_lib_prefix=no
++  need_version=no
++  library_names_spec='$libname$release$shared_ext'
++  soname_spec='$libname$release$shared_ext'
 +  dynamic_linker="$host_os ld.so"
-+  soname_spec='${libname}${release}${shared_ext}$major'
 +  shlibpath_var=LIBRARY_PATH
 +  ;;
 +
  bsdi[[45]]*)
    version_type=linux # correct to gnu/linux during the next big refactor
    need_version=no
-@@ -3541,6 +3548,10 @@ irix5* | irix6* | nonstopux*)
+@@ -3541,6 +3551,10 @@ irix5* | irix6* | nonstopux*)
    lt_cv_deplibs_check_method=pass_all
    ;;
  
@@ -26,7 +29,7 @@ diff -Nurp a/m4/libtool.m4 b/m4/libtool.m4
  # This must be glibc/ELF.
  linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
    lt_cv_deplibs_check_method=pass_all
-@@ -6766,6 +6777,10 @@ if test yes != "$_lt_caught_CXX_error";
+@@ -6766,6 +6780,10 @@ if test yes != "$_lt_caught_CXX_error";
          _LT_TAGVAR(ld_shlibs, $1)=yes
          ;;
  
