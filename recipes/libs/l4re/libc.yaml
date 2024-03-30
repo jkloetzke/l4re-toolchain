@@ -52,11 +52,7 @@ buildScript: |
     fi
 
     cd build
-
     makeParallel sysroot
-    ${CROSS_COMPILE}gcc -c -o sysroot/usr/lib/crtl4kip.o -x assembler-with-cpp \
-        -DL4_BID_KIP_ADDR=$L4_BID_KIP_ADDR \
-        $<<libc/crtl4kip.S>>
 
 packageScript: |
     cp -a $1/build/sysroot/* .
