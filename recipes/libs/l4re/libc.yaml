@@ -7,12 +7,12 @@ depends:
 checkoutSCM:
     - scm: git
       dir: .
-      url: https://github.com/jkloetzke/mk.git
-      branch: l4re-toolchain
+      url: https://github.com/kernkonzept/mk.git
+      branch: master
     - scm: git
       dir: pkg/l4re-core
-      url: https://github.com/jkloetzke/l4re-core.git
-      branch: l4re-toolchain
+      url: https://github.com/kernkonzept/l4re-core.git
+      branch: master
 
 buildTools: [host-toolchain, target-toolchain, flex, bison]
 buildVars: [ARCH, CROSS_COMPILE]
